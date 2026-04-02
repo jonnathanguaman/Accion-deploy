@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deploy Automático VPS</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0c10;
+      --surface: #111318;
+      --surface2: #181c24;
+      --border: #1e2330;
+      --accent: #00e5a0;
+      --accent2: #0084ff;
+      --accent3: #f7c948;
+      --text: #e2e8f0;
+      --muted: #6b7a99;
+      --code-bg: #0d1117;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 60px 24px 100px;
+    }
+
+    /* Header */
+    .header {
+      margin-bottom: 64px;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,229,160,0.08);
+      border: 1px solid rgba(0,229,160,0.2);
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 100px;
+      margin-bottom: 24px;
+    }
+
+    .header-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    h1 {
+      font-size: clamp(28px, 5vw, 44px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    h1 span {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 400;
+      line-height: 1.6;
+      max-width: 520px;
+    }
+
+    /* Progress bar */
+    .progress-bar {
+      display: flex;
+      gap: 4px;
+      margin-top: 32px;
+    }
+
+    .progress-bar .seg {
+      height: 3px;
+      flex: 1;
+      background: var(--border);
+      border-radius: 2px;
+      transition: background 0.3s;
+    }
+
+    .progress-bar .seg.done { background: var(--accent); }
+
+    /* Steps */
+    .steps { display: flex; flex-direction: column; gap: 24px; }
+
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      animation: fadeUp 0.5s ease both;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .step:hover {
+      border-color: rgba(0,229,160,0.2);
+      transform: translateY(-2px);
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 20px 24px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .step-num {
+      width: 36px; height: 36px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .step-title {
+      flex: 1;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.01em;
+    }
+
+    .step-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    .tag-ssh { background: rgba(0,229,160,0.1); color: var(--accent); }
+    .tag-git { background: rgba(0,132,255,0.1); color: var(--accent2); }
+    .tag-docker { background: rgba(14,200,255,0.1); color: #0ec8ff; }
+    .tag-ci { background: rgba(247,201,72,0.1); color: var(--accent3); }
+    .tag-config { background: rgba(180,80,255,0.1); color: #b450ff; }
+
+    .chevron {
+      width: 20px; height: 20px;
+      color: var(--muted);
+      transition: transform 0.3s;
+      flex-shrink: 0;
+    }
+
+    .step.open .chevron { transform: rotate(180deg); }
+
+    .step-body {
+      display: none;
+      padding: 0 24px 24px;
+    }
+
+    .step.open .step-body { display: block; }
+
+    .step-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+
+    .step-desc a {
+      color: var(--accent2);
+      text-decoration: none;
+    }
+
+    /* Code block */
+    .code-block {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .code-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+
+    .copy-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .copy-btn.copied {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(0,229,160,0.08);
+    }
+
+    pre {
+      padding: 16px;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      line-height: 1.8;
+      color: #a8b8d8;
+    }
+
+    pre .k { color: #0ec8ff; }   /* keyword */
+    pre .s { color: #f7c948; }   /* string */
+    pre .c { color: #4a5568; }   /* comment */
+    pre .v { color: var(--accent); } /* variable */
+    pre .p { color: #b450ff; }   /* punctuation special */
+
+    /* List */
+    .step-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .step-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .step-list li::before {
+      content: '→';
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    .step-list li strong {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 1px 8px;
+      border-radius: 5px;
+    }
+
+    /* Result */
+    .result-card {
+      background: linear-gradient(135deg, rgba(0,229,160,0.06), rgba(0,132,255,0.06));
+      border: 1px solid rgba(0,229,160,0.2);
+      border-radius: 16px;
+      padding: 28px 32px;
+      margin-top: 32px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .rocket-icon {
+      font-size: 40px;
+      flex-shrink: 0;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .result-card h3 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .result-card p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* Animations */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-8px); }
+    }
+
+    /* Stagger animation delays */
+    .step:nth-child(1) { animation-delay: 0.05s; }
+    .step:nth-child(2) { animation-delay: 0.10s; }
+    .step:nth-child(3) { animation-delay: 0.15s; }
+    .step:nth-child(4) { animation-delay: 0.20s; }
+    .step:nth-child(5) { animation-delay: 0.25s; }
+    .step:nth-child(6) { animation-delay: 0.30s; }
+    .step:nth-child(7) { animation-delay: 0.35s; }
+    .step:nth-child(8) { animation-delay: 0.40s; }
+    .step:nth-child(9) { animation-delay: 0.45s; }
+
+    /* Scrollbar */
+    pre::-webkit-scrollbar { height: 4px; }
+    pre::-webkit-scrollbar-track { background: transparent; }
+    pre::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    @media (max-width: 600px) {
+      .step-tag { display: none; }
+      .result-card { flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="header-badge">Guía de deploy</div>
+      <h1>Deploy Automático con<br><span>GitHub + Docker + VPS</span></h1>
+      <p class="subtitle">Configura un pipeline de CI/CD completo para que cada push a <code style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:13px;">main</code> despliegue tu aplicación automáticamente.</p>
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <!-- Steps -->
+    <div class="steps">
+
+      <!-- 1 -->
+      <div class="step open" data-step="1">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-num">01</div>
+          <div class="step-title">Generar clave SSH en el VPS</div>
+          <span class="step-tag tag-ssh">SSH</span>
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Conéctate a tu VPS y genera un par de claves ED25519. Este algoritmo es más seguro y rápido que RSA.</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">bash — VPS</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            </div>
+            <pre>ssh-keygen -t ed25519 -C <span class="s">"tu_email@gmail.com"</span></pre>
+          </div>
+          <p class="step-desc">Presiona <strong style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text)">ENTER</strong> en todas las preguntas para usar la ruta y passphrase por defecto.</p>
+        </div>
+      </div>
+
+      <!-- 2 -->
+      <div class="step" data-step="2">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-num">02</div>
+          <div class="step-title">Copiar la clave pública</div>
+          <span class="step-tag tag-ssh">SSH</span>
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Muestra el contenido de la clave pública. Cópiala completa — la necesitarás en los pasos siguientes.</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">bash — VPS</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            </div>
+            <pre>cat ~/.ssh/id_ed25519.pub</pre>
+          </div>
+          <p class="step-desc">El output empieza con <code style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:12px;">ssh-ed25519 AAAA...</code> — guárdalo en un lugar temporal.</p>
+        </div>
+      </div>
+
+      <!-- 3 -->
+      <div class="step" data-step="3">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-num">03</div>
+          <div class="step-title">Agregar clave a GitHub</div>
+          <span class="step-tag tag-git">Git</span>
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Registra tu clave pública en GitHub para poder clonar repositorios via SSH sin contraseña.</p>
+          <ul class="step-list">
+            <li>Ve a <strong>github.com → Settings</strong></li>
+            <li>Sección <strong>SSH and GPG keys</strong></li>
+            <li>Click en <strong>New SSH key</strong></li>
+            <li>Pega el contenido de la clave pública y guarda</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 4 -->
+      <div class="step" data-step="4">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-num">04</div>
+          <div class="step-title">Clonar repositorio via SSH</div>
+          <span class="step-tag tag-git">Git</span>
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">En tu VPS, clona el repositorio usando la URL SSH (no HTTPS) para que los pulls futuros sean sin contraseña.</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">bash — VPS</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            </div>
+            <pre>git clone git@github.com:<span class="v">usuario</span>/<span class="v">repositorio</span>.git</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5 -->
+      <div class="step" data-step="5">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-num">05</div>
+          <div class="step-title">Crear docker-compose.yml</div>
+          <span class="step-tag tag-docker">Docker</span>
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Define los servicios de tu aplicación. Ajusta el mapeo de puertos según tu stack.</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">yaml — docker-compose.yml</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            </div>
+            <pre><span class="k">version</span>: <span class="s">'3'</span>
+<span class="k">services</span>:
+  <span class="k">app</span>:
+    <span class="k">build</span>: .
+    <span class="k">ports</span>:
+      - <span class="s">"80:80"</span>
+    <span class="k">restart</span>: unless-stopped</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6 -->
+      <div class="step" data-step="6">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-num">06</div>
+          <div class="step-title">Crear GitHub Actions workflow</div>
+          <span class="step-tag tag-ci">CI/CD</span>
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Crea el archivo <code style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:12px;">.github/workflows/deploy.yml</code> en tu repositorio. Se ejecutará en cada push a <code style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:12px;">main</code>.</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">yaml — .github/workflows/deploy.yml</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            </div>
+            <pre><span class="k">name</span>: Deploy
+<span class="k">on</span>:
+  <span class="k">push</span>:
+    <span class="k">branches</span>: [ <span class="s">"main"</span> ]
+
+<span class="k">jobs</span>:
+  <span class="k">deploy</span>:
+    <span class="k">runs-on</span>: ubuntu-latest
+    <span class="k">environment</span>: Despliege_mdm
+    <span class="k">steps</span>:
+      - <span class="k">name</span>: Deploy via SSH
+        <span class="k">uses</span>: appleboy/ssh-action@v0.1.10
+        <span class="k">with</span>:
+          <span class="k">host</span>: <span class="v">${{ secrets.SERVER_IP }}</span>
+          <span class="k">username</span>: <span class="v">${{ secrets.SERVER_USER }}</span>
+          <span class="k">key</span>: <span class="v">${{ secrets.SSH_PRIVATE_KEY }}</span>
+          <span class="k">script</span>: |
+            cd /home/<span class="v">usuario</span>/<span class="v">proyecto</span>
+            git pull origin main
+            docker compose down
+            docker compose up -d --build</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7 -->
+      <div class="step" data-step="7">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-num">07</div>
+          <div class="step-title">Configurar Secrets en GitHub</div>
+          <span class="step-tag tag-config">Config</span>
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Ve a tu repo → <strong style="color:var(--text)">Settings → Secrets and variables → Actions</strong> y agrega estas tres variables:</p>
+          <ul class="step-list">
+            <li><strong>SERVER_IP</strong> — Dirección IP pública de tu VPS</li>
+            <li><strong>SERVER_USER</strong> — Usuario SSH del VPS (ej. <code style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:12px;">root</code>)</li>
+            <li><strong>SSH_PRIVATE_KEY</strong> — Contenido completo de <code style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:12px;">~/.ssh/id_ed25519</code> (clave privada)</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 8 -->
+      <div class="step" data-step="8">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-num">08</div>
+          <div class="step-title">Autorizar acceso SSH en el VPS</div>
+          <span class="step-tag tag-ssh">SSH</span>
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Agrega la clave pública del VPS al archivo de claves autorizadas para que GitHub Actions pueda conectarse.</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">bash — VPS</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            </div>
+            <pre>nano ~/.ssh/authorized_keys
+<span class="c"># Pegar aquí la clave pública (id_ed25519.pub)</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- 9 -->
+      <div class="step" data-step="9">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-num">09</div>
+          <div class="step-title">Corregir permisos SSH</div>
+          <span class="step-tag tag-config">Config</span>
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">SSH es estricto con los permisos. Si son incorrectos, ignorará las claves autorizadas silenciosamente.</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">bash — VPS</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            </div>
+            <pre>chmod 700 ~/.ssh
+chmod 600 ~/.ssh/authorized_keys</pre>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Result card -->
+    <div class="result-card">
+      <div class="rocket-icon">🚀</div>
+      <div>
+        <h3>¡Pipeline listo!</h3>
+        <p>Cada push a <code style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:13px;">main</code> ejecutará el workflow automáticamente, se conectará a tu VPS via SSH y desplegará la nueva versión con Docker en segundos.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Toggle accordion
+    function toggleStep(header) {
+      const step = header.parentElement;
+      step.classList.toggle('open');
+      updateProgress();
+    }
+
+    // Copy code
+    function copyCode(btn) {
+      const pre = btn.closest('.code-block').querySelector('pre');
+      const text = pre.innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = '¡Copiado!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copiar';
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+
+    // Progress bar
+    function updateProgress() {
+      const steps = document.querySelectorAll('.step');
+      const segs = document.querySelectorAll('.progress-bar .seg');
+      steps.forEach((step, i) => {
+        if (segs[i]) segs[i].classList.toggle('done', step.classList.contains('open'));
+      });
+    }
+
+    // Init progress bar
+    const bar = document.getElementById('progressBar');
+    for (let i = 0; i < 9; i++) {
+      const seg = document.createElement('div');
+      seg.className = 'seg';
+      bar.appendChild(seg);
+    }
+    updateProgress();
+  </script>
+</body>
+</html>
